@@ -34,7 +34,8 @@
   },
   "types": "./types/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "types"
   ],
   "devDependencies": {
     "@types/jest": "^29.5.12",
@@ -51,7 +52,6 @@
     "vite": "^5.2.9",
     "vite-plugin-singlefile": "^2.0.1"
   },
-  "private": false,
   "release": {
     "branches": [
       "main",
