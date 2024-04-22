@@ -33,8 +33,7 @@ import {
   ResourceAddress,
   ResourceInformation,
 } from "../Types/RadixTypes";
-//@ts-ignore
-import plimit = require("p-limit");
+import pLimit from 'p-limit';
 
 /**
  * Class responsible for interacting with the Radix gateway API.
@@ -427,7 +426,7 @@ export class GatewayProcessor {
 
     // Fetch resource address and ids
     let owned = new Map<string, string[]>();
-    const limit = plimit(this._concurrencyLimit);
+    const limit = pLimit(this._concurrencyLimit);
     await Promise.all(
       items.map(async (item) => {
         if (item.aggregation_level == "Vault") {
@@ -550,7 +549,7 @@ export class GatewayProcessor {
     ids: string[],
   ): Promise<NonFungibleItem[]> {
     const nft_batches = divideInBatches(ids, 100);
-    const limit = plimit(this._concurrencyLimit);
+    const limit = pLimit(this._concurrencyLimit);
     return (
       await Promise.all(
         nft_batches.map(async (batch) => {
