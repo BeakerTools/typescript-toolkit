@@ -115,11 +115,11 @@ export function proofToArg(
  * @param content Content of the array.
  */
 export function array<T>(type_name: string, content: T[]): string {
-  let vec_string = `Array<${type_name}>`;
+  let vec_string = `Array<${type_name}>(`;
   content.forEach((item) => {
     vec_string += `${item}, `;
   });
-  vec_string.slice(0, -2);
+  vec_string = vec_string.slice(0, -2) + ")"
 
   return vec_string;
 }
