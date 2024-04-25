@@ -267,103 +267,26 @@ export class GatewayProcessor {
     resource_addresses: ResourceAddress[],
   ): Promise<Map<ResourceAddress, ResourceInformation>> {
     let resource_map = new Map<ResourceAddress, ResourceInformation>();
-
-    let resp = await this.entityDetails(resource_addresses);
-    resp.items.forEach((item) => {
-      if (item.details) {
-        let name: string | undefined;
-        let description: string | undefined;
-        let icon: string | undefined;
-        let symbol: string | undefined;
-
-        item.metadata.items.forEach((metadata) => {
-          switch (metadata.key) {
-            case "name": {
-              if (metadata.value.programmatic_json.kind === "String") {
-                name = metadata.value.programmatic_json.value;
-              } else if (metadata.value.programmatic_json.kind === "Enum") {
-                let field = metadata.value.programmatic_json.fields[0]!;
-                if (field.kind === "String") {
-                  name = field.value.toString();
-                }
-              }
-              break;
-            }
-            case "description": {
-              if (metadata.value.programmatic_json.kind === "String") {
-                description = metadata.value.programmatic_json.value;
-              } else if (metadata.value.programmatic_json.kind === "Enum") {
-                let field = metadata.value.programmatic_json.fields[0]!;
-                if (field.kind === "String") {
-                  description = field.value.toString();
-                }
-              }
-              break;
-            }
-            case "icon_url": {
-              if (metadata.value.programmatic_json.kind === "Enum") {
-                let field = metadata.value.programmatic_json.fields[0]!;
-                if (field.kind === "String") {
-                  icon = field.value.toString();
-                }
-              } else if (metadata.value.programmatic_json.kind === "String") {
-                icon = metadata.value.programmatic_json.value;
-              }
-              break;
-            }
-            case "symbol": {
-              if (metadata.value.programmatic_json.kind === "String") {
-                symbol = metadata.value.programmatic_json.value;
-              } else if (metadata.value.programmatic_json.kind === "Enum") {
-                let field = metadata.value.programmatic_json.fields[0]!;
-                if (field.kind === "String") {
-                  symbol = field.value.toString();
-                }
-              }
-            }
-          }
-        });
-
-        if (name) {
-          switch (item.details.type) {
-            case "NonFungibleResource": {
-              resource_map.set(item.address, {
-                type: "NonFungible",
-                information: {
-                  name: name,
-                  address: item.address,
-                  description: description,
-                  icon: icon,
-                },
-              });
-              break;
-            }
-            case "FungibleResource": {
-              resource_map.set(item.address, {
-                type: "Fungible",
-                information: {
-                  name: name,
-                  address: item.address,
-                  description: description,
-                  icon: icon,
-                  symbol: symbol,
-                },
-              });
-              break;
-            }
-          }
-        }
-      }
-    });
-
-    return resource_map;
+    const batches = divideInBatches(resource_addresses, 20);
+    const limit = pLimit(this._concurrencyLimit);
+    await Promise.all(
+        batches.map(async (batch) => {
+          const items = await limit( () => {
+            return this.limitedResourcesInformation(batch)
+          });
+          items.forEach((value, key) => {
+            resource_map.set(key, value)
+          })
+        }),
+    );
+    return resource_map
   }
 
   /**
    * Retrieves fungibles resources associated with specified component address.
    * @param entity Address of the component.
    */
-  async getFungibleResourcesHeldBy(
+   async getFungibleResourcesHeldBy(
     entity: ComponentAddress,
   ): Promise<FungibleResource[]> {
     const resp = await this.entityDetails([entity]);
@@ -625,6 +548,104 @@ export class GatewayProcessor {
       this._maxLoops,
     );
   }
+
+  /**
+   * Takes up to 20 resource addresses as input
+   */
+  private async limitedResourcesInformation(resource_addresses: ResourceAddress[]): Promise<Map<ResourceAddress, ResourceInformation>>{
+    let resource_map = new Map<ResourceAddress, ResourceInformation>();
+
+    let resp = await this.entityDetails(resource_addresses);
+    resp.items.forEach((item) => {
+      if (item.details) {
+        let name: string | undefined;
+        let description: string | undefined;
+        let icon: string | undefined;
+        let symbol: string | undefined;
+
+        item.metadata.items.forEach((metadata) => {
+          switch (metadata.key) {
+            case "name": {
+              if (metadata.value.programmatic_json.kind === "String") {
+                name = metadata.value.programmatic_json.value;
+              } else if (metadata.value.programmatic_json.kind === "Enum") {
+                let field = metadata.value.programmatic_json.fields[0]!;
+                if (field.kind === "String") {
+                  name = field.value.toString();
+                }
+              }
+              break;
+            }
+            case "description": {
+              if (metadata.value.programmatic_json.kind === "String") {
+                description = metadata.value.programmatic_json.value;
+              } else if (metadata.value.programmatic_json.kind === "Enum") {
+                let field = metadata.value.programmatic_json.fields[0]!;
+                if (field.kind === "String") {
+                  description = field.value.toString();
+                }
+              }
+              break;
+            }
+            case "icon_url": {
+              if (metadata.value.programmatic_json.kind === "Enum") {
+                let field = metadata.value.programmatic_json.fields[0]!;
+                if (field.kind === "String") {
+                  icon = field.value.toString();
+                }
+              } else if (metadata.value.programmatic_json.kind === "String") {
+                icon = metadata.value.programmatic_json.value;
+              }
+              break;
+            }
+            case "symbol": {
+              if (metadata.value.programmatic_json.kind === "String") {
+                symbol = metadata.value.programmatic_json.value;
+              } else if (metadata.value.programmatic_json.kind === "Enum") {
+                let field = metadata.value.programmatic_json.fields[0]!;
+                if (field.kind === "String") {
+                  symbol = field.value.toString();
+                }
+              }
+            }
+          }
+        });
+
+        if (name) {
+          switch (item.details.type) {
+            case "NonFungibleResource": {
+              resource_map.set(item.address, {
+                type: "NonFungible",
+                information: {
+                  name: name,
+                  address: item.address,
+                  description: description,
+                  icon: icon,
+                },
+              });
+              break;
+            }
+            case "FungibleResource": {
+              resource_map.set(item.address, {
+                type: "Fungible",
+                information: {
+                  name: name,
+                  address: item.address,
+                  description: description,
+                  icon: icon,
+                  symbol: symbol,
+                },
+              });
+              break;
+            }
+          }
+        }
+      }
+    });
+
+    return resource_map;
+  }
+
 
   private async keyValueStoreData(
     kvs_address: string,

@@ -146,7 +146,7 @@ export function createProofOfAmount(
  * @param account Account where to deposit the resources.
  */
 export function depositBatch(account: AccountAddress): string {
-  return callMethod(account, "deposit_batch", [`Expression("ENTIRE_WORKTOP")`]);
+  return callMethod("deposit_batch", account, [`Expression("ENTIRE_WORKTOP")`]);
 }
 
 /**
