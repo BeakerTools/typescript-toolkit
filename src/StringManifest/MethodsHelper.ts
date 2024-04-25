@@ -23,7 +23,7 @@ export function addressFrom(globalAddress: string): string {
  */
 export function lockFee(account: string, amount?: Decimal): string {
   let to_lock = amount ? amount : 20;
-  return callMethod("lock_fee", account, [`Decimal("${to_lock}")`]);
+  return callMethod("lock_fee", account, [decimalToArg(to_lock)]);
 }
 
 /**
@@ -42,11 +42,11 @@ export function fungibleBucket(
         ${addressFrom(account)}
         "withdraw"
         ${addressFrom(bucket.address)}
-        Decimal("${bucket.amount}");
+        ${decimalToArg(bucket.amount)};
      
      TAKE_FROM_WORKTOP
         ${addressFrom(bucket.address)}
-        Decimal("${bucket.amount}")
+        ${decimalToArg(bucket.amount)}
         Bucket("${bucketName}");`;
 }
 
@@ -124,6 +124,10 @@ export function array<T>(type_name: string, content: T[]): string {
   return vec_string;
 }
 
+export function decimalToArg(decimal: Decimal): string {
+  return `Decimal("${decimal}")`
+}
+
 /**
  * Returns a manifest instruction to create a proof of an amount of fungibles.
  * @param account Account from which to create the proof.
@@ -137,7 +141,7 @@ export function createProofOfAmount(
 ): string {
   return callMethod("create_proof_of_amount", account, [
     addressFrom(resourceAddress),
-    `Decimal(${amount})`,
+    decimalToArg(amount),
   ]);
 }
 
