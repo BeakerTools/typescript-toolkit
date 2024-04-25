@@ -8,7 +8,7 @@ import {
   StateEntityNonFungiblesPageResponse,
   StateKeyValueStoreDataRequestKeyItem,
   StateKeyValueStoreDataResponseItem,
-  StateNonFungibleDetailsResponseItem,
+  StateNonFungibleDetailsResponseItem, StateNonFungibleIdsResponse,
   StreamTransactionsResponse,
   TransactionCommittedDetailsResponse,
   TransactionStatus,
@@ -24,7 +24,7 @@ import {
   TransactionHash,
   TransactionManifest,
 } from "@radixdlt/radix-engine-toolkit";
-import { divideInBatches, withMaxLoops } from "./Utils";
+import {divideInBatches, parseNonFungibleData, withMaxLoops} from "./Utils";
 import {
   ComponentAddress,
   FungibleResource,
@@ -463,6 +463,25 @@ export class GatewayProcessor {
   }
 
   /**
+   * Retrieves all non-fungible ids associated to a non-fungible resource.
+   * @param resource_address Address of the non-fungible resource
+   * @param at_ledger_state Optional ledger state when to make the query.
+   */
+  async getAllNonFungibleIds(resource_address: ResourceAddress, at_ledger_state?: number): Promise<string[]>{
+    const state_version = at_ledger_state? at_ledger_state: await this.ledgerState();
+    let cursor: string | null | undefined = undefined;
+
+    let ids: string[] = []
+    do {
+      const ids_resp = await this.nonFungibleIds(resource_address, state_version, cursor);
+      ids = ids.concat(ids_resp.non_fungible_ids.items);
+      cursor = ids_resp.non_fungible_ids.next_cursor;
+    }while(cursor)
+
+    return ids;
+  }
+
+  /**
    * Retrieves non-fungibles items associated with specified resource address and ids.
    * @param resource_address Address of the non-fungible items.
    * @param ids Ids of the non-fungible items.
@@ -488,34 +507,28 @@ export class GatewayProcessor {
             if (item.data && item.data.programmatic_json.kind == "Tuple") {
               // Filter data
               item.data.programmatic_json.fields.forEach((field) => {
-                if (field.kind == "String" && field.field_name) {
-                  switch (field.field_name) {
+                let nf_data = parseNonFungibleData(field);
+
+                if(nf_data.name){
+                  switch (nf_data.name){
                     case "name": {
-                      name = field.value.toString();
+                      name = nf_data.value;
                       break;
                     }
                     case "description": {
-                      description = field.value.toString();
+                      description = nf_data.value;
                       break;
                     }
                     case "key_image_url": {
-                      image_url = field.value.toString();
+                      image_url = nf_data.value;
                       break;
                     }
                     default: {
                       non_fungible_data.set(
-                        field.field_name,
-                        field.value.toString(),
+                          nf_data.name,
+                          nf_data.value,
                       );
                     }
-                  }
-                }
-                else if(field.kind == "Enum"){
-                  if(field.type_name && field.variant_name){
-                    non_fungible_data.set(field.type_name, field.variant_name);
-                  }
-                  else if(field.field_name && field.variant_name){
-                    non_fungible_data.set(field.field_name, field.variant_name)
                   }
                 }
               });
@@ -725,6 +738,24 @@ export class GatewayProcessor {
       "Could not query NFT in given vault",
       this._maxLoops,
     );
+  }
+  private async nonFungibleIds(resource_address: ResourceAddress, at_ledger_state: number, cursor?: string): Promise<StateNonFungibleIdsResponse> {
+    return withMaxLoops(
+        async () =>{
+          return await this._api.state.innerClient.nonFungibleIds({
+            stateNonFungibleIdsRequest: {
+              resource_address: resource_address,
+              cursor: cursor,
+              limit_per_page: 100,
+              at_ledger_state: {
+                state_version: at_ledger_state
+              }
+            }
+          })
+        },
+        "Could not query non fungible ids",
+        this._maxLoops
+    )
   }
 
   private async transactionStream(

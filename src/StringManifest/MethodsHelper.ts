@@ -163,8 +163,7 @@ export function callMethod(
   let partial_return = `
     CALL_METHOD
         Address("${componentAddress}")
-        "${methodName}"
-  `;
+        "${methodName}"`;
 
   args.forEach((arg) => {
     partial_return += `

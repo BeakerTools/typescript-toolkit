@@ -24,6 +24,11 @@ export type NFT = {
   id: NonFungibleLocalId;
 };
 
+export type NonFungibleData = {
+  name?: string;
+  value: string;
+}
+
 export type Resource =
   | {
       type: "Fungible";
