@@ -139,3 +139,19 @@ test("Test Get Non Fungible Items", async () => {
   ];
   expect(nf_items.sort()).toEqual(expected_items);
 });
+
+test("Test Get Nft Owner", async () => {
+  let transactionProcessor = GatewayProcessor.fromNetworkId(NetworkId.Stokenet);
+  const owners_map = await transactionProcessor.getNftOwners(
+    "resource_tdx_2_1ntyqfrz9antsp8ttkxq5nre463lxpnq787ez8r2hr76xfr6tex8xtp",
+    ["{d10c067ccc00f8b0-f809ae1e32da41ae-f5881fdcc8c8bbe4-8c3b9d589444feba}"],
+  );
+
+  let owner = owners_map.get(
+    "{d10c067ccc00f8b0-f809ae1e32da41ae-f5881fdcc8c8bbe4-8c3b9d589444feba}",
+  );
+
+  expect(owner).toEqual(
+    "account_tdx_2_1298yfy03ertz3dywxqejsvswrz9448dxzw6ak3dz5cdey8gccu63fg",
+  );
+});

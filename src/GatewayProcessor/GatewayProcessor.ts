@@ -8,7 +8,9 @@ import {
   StateEntityNonFungiblesPageResponse,
   StateKeyValueStoreDataRequestKeyItem,
   StateKeyValueStoreDataResponseItem,
-  StateNonFungibleDetailsResponseItem, StateNonFungibleIdsResponse,
+  StateNonFungibleDetailsResponseItem,
+  StateNonFungibleIdsResponse,
+  StateNonFungibleLocationResponseItem,
   StreamTransactionsResponse,
   TransactionCommittedDetailsResponse,
   TransactionStatus,
@@ -24,7 +26,7 @@ import {
   TransactionHash,
   TransactionManifest,
 } from "@radixdlt/radix-engine-toolkit";
-import {divideInBatches, parseNonFungibleData, withMaxLoops} from "./Utils";
+import { divideInBatches, parseNonFungibleData, withMaxLoops } from "./Utils";
 import {
   ComponentAddress,
   FungibleResource,
@@ -33,7 +35,7 @@ import {
   ResourceAddress,
   ResourceInformation,
 } from "../Types/RadixTypes";
-import pLimit from 'p-limit';
+import pLimit from "p-limit";
 
 /**
  * Class responsible for interacting with the Radix gateway API.
@@ -270,23 +272,23 @@ export class GatewayProcessor {
     const batches = divideInBatches(resource_addresses, 20);
     const limit = pLimit(this._concurrencyLimit);
     await Promise.all(
-        batches.map(async (batch) => {
-          const items = await limit( () => {
-            return this.limitedResourcesInformation(batch)
-          });
-          items.forEach((value, key) => {
-            resource_map.set(key, value)
-          })
-        }),
+      batches.map(async (batch) => {
+        const items = await limit(() => {
+          return this.limitedResourcesInformation(batch);
+        });
+        items.forEach((value, key) => {
+          resource_map.set(key, value);
+        });
+      }),
     );
-    return resource_map
+    return resource_map;
   }
 
   /**
    * Retrieves fungibles resources associated with specified component address.
    * @param entity Address of the component.
    */
-   async getFungibleResourcesHeldBy(
+  async getFungibleResourcesHeldBy(
     entity: ComponentAddress,
   ): Promise<FungibleResource[]> {
     const resp = await this.entityDetails([entity]);
@@ -467,16 +469,25 @@ export class GatewayProcessor {
    * @param resource_address Address of the non-fungible resource
    * @param at_ledger_state Optional ledger state when to make the query.
    */
-  async getAllNonFungibleIds(resource_address: ResourceAddress, at_ledger_state?: number): Promise<string[]>{
-    const state_version = at_ledger_state? at_ledger_state: await this.ledgerState();
+  async getAllNonFungibleIds(
+    resource_address: ResourceAddress,
+    at_ledger_state?: number,
+  ): Promise<string[]> {
+    const state_version = at_ledger_state
+      ? at_ledger_state
+      : await this.ledgerState();
     let cursor: string | null | undefined = undefined;
 
-    let ids: string[] = []
+    let ids: string[] = [];
     do {
-      const ids_resp = await this.nonFungibleIds(resource_address, state_version, cursor);
+      const ids_resp = await this.nonFungibleIds(
+        resource_address,
+        state_version,
+        cursor,
+      );
       ids = ids.concat(ids_resp.non_fungible_ids.items);
       cursor = ids_resp.non_fungible_ids.next_cursor;
-    }while(cursor)
+    } while (cursor);
 
     return ids;
   }
@@ -509,8 +520,8 @@ export class GatewayProcessor {
               item.data.programmatic_json.fields.forEach((field) => {
                 let nf_data = parseNonFungibleData(field);
 
-                if(nf_data.name){
-                  switch (nf_data.name){
+                if (nf_data.name) {
+                  switch (nf_data.name) {
                     case "name": {
                       name = nf_data.value;
                       break;
@@ -524,10 +535,7 @@ export class GatewayProcessor {
                       break;
                     }
                     default: {
-                      non_fungible_data.set(
-                          nf_data.name,
-                          nf_data.value,
-                      );
+                      non_fungible_data.set(nf_data.name, nf_data.value);
                     }
                   }
                 }
@@ -563,9 +571,38 @@ export class GatewayProcessor {
   }
 
   /**
+   * Retrieves the owners associated with specified resource address and ids.
+   * @param resource_address Address of the non-fungible items.
+   * @param ids Ids of the non-fungible items.
+   */
+  async getNftOwners(resource_address: ResourceAddress, ids: string[]) {
+    const nft_batches = divideInBatches(ids, 100);
+    const limit = pLimit(this._concurrencyLimit);
+    let return_map = new Map<string, string>();
+
+    await Promise.all(
+      nft_batches.map(async (batch) => {
+        let nft_ids = await limit(async () =>
+          this.getEntityLocation(resource_address, batch),
+        );
+        nft_ids.map((item) => {
+          return_map.set(
+            item.non_fungible_id,
+            item.owning_vault_global_ancestor_address!,
+          );
+        });
+      }),
+    );
+
+    return return_map;
+  }
+
+  /**
    * Takes up to 20 resource addresses as input
    */
-  private async limitedResourcesInformation(resource_addresses: ResourceAddress[]): Promise<Map<ResourceAddress, ResourceInformation>>{
+  private async limitedResourcesInformation(
+    resource_addresses: ResourceAddress[],
+  ): Promise<Map<ResourceAddress, ResourceInformation>> {
     let resource_map = new Map<ResourceAddress, ResourceInformation>();
 
     let resp = await this.entityDetails(resource_addresses);
@@ -659,7 +696,6 @@ export class GatewayProcessor {
     return resource_map;
   }
 
-
   private async keyValueStoreData(
     kvs_address: string,
     keys: StateKeyValueStoreDataRequestKeyItem[],
@@ -739,23 +775,27 @@ export class GatewayProcessor {
       this._maxLoops,
     );
   }
-  private async nonFungibleIds(resource_address: ResourceAddress, at_ledger_state: number, cursor?: string): Promise<StateNonFungibleIdsResponse> {
+  private async nonFungibleIds(
+    resource_address: ResourceAddress,
+    at_ledger_state: number,
+    cursor?: string,
+  ): Promise<StateNonFungibleIdsResponse> {
     return withMaxLoops(
-        async () =>{
-          return await this._api.state.innerClient.nonFungibleIds({
-            stateNonFungibleIdsRequest: {
-              resource_address: resource_address,
-              cursor: cursor,
-              limit_per_page: 100,
-              at_ledger_state: {
-                state_version: at_ledger_state
-              }
-            }
-          })
-        },
-        "Could not query non fungible ids",
-        this._maxLoops
-    )
+      async () => {
+        return await this._api.state.innerClient.nonFungibleIds({
+          stateNonFungibleIdsRequest: {
+            resource_address: resource_address,
+            cursor: cursor,
+            limit_per_page: 100,
+            at_ledger_state: {
+              state_version: at_ledger_state,
+            },
+          },
+        });
+      },
+      "Could not query non fungible ids",
+      this._maxLoops,
+    );
   }
 
   private async transactionStream(
@@ -814,6 +854,19 @@ export class GatewayProcessor {
         return await this._api.state.getNonFungibleData(address, ids);
       },
       "Could not query non fungible data",
+      this._maxLoops,
+    );
+  }
+
+  private async getEntityLocation(
+    address: ResourceAddress,
+    ids: string[],
+  ): Promise<StateNonFungibleLocationResponseItem[]> {
+    return withMaxLoops(
+      async () => {
+        return await this._api.state.getNonFungibleLocation(address, ids);
+      },
+      "Could not query non fungible location",
       this._maxLoops,
     );
   }
