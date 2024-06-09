@@ -119,7 +119,10 @@ export function array<T>(type_name: string, content: T[]): string {
   content.forEach((item) => {
     vec_string += `${item}, `;
   });
-  vec_string = vec_string.slice(0, -2) + ")"
+  if(content.length > 0){
+      vec_string= vec_string.slice(0, -2)
+  }
+  vec_string += ")"
 
   return vec_string;
 }

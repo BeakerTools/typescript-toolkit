@@ -40,7 +40,7 @@ test("Test Get Fungible Resources", async () => {
   let fungibles_held =
     await transactionProcessor.getFungibleResourcesHeldBy(toolkit_test_account);
 
-  expect(fungibles_held.length).toEqual(4);
+  expect(fungibles_held.length).toEqual(2);
 
   let resource_map = new Map<ResourceAddress, FungibleResource>();
   fungibles_held.forEach((resource) => {
@@ -50,26 +50,16 @@ test("Test Get Fungible Resources", async () => {
   const xrd = resource_map.get(
     "resource_tdx_2_1tknxxxxxxxxxradxrdxxxxxxxxx009923554798xxxxxxxxxtfd2jc",
   );
-  const usdc = resource_map.get(
-    "resource_tdx_2_1t5hkwq4r6dad0mc3hvnqwev0829hfsre3k78tvr5kche88glmd964t",
-  );
-  const usdt = resource_map.get(
-    "resource_tdx_2_1tht65f9m9u9w97rqszwyqrvawy476aqwef0vwrde48n9zest2ut5fv",
-  );
-  const lendapp = resource_map.get(
-    "resource_tdx_2_1thgn6psvkajgxwksedlnyzg7pehnthet8jknxfdpv8k666trmc52a5",
+  const shard = resource_map.get(
+    "resource_tdx_2_1tkr048zq66t84vm8hyt0u0856xkpcdyamvzlrlwmn9kwcve596dtrc",
   );
 
   expect(xrd).toBeDefined();
-  expect(usdc).toBeDefined();
-  expect(usdt).toBeDefined();
-  expect(lendapp).toBeDefined();
+  expect(shard).toBeDefined();
 
-  if (xrd && usdc && usdt && lendapp) {
-    expect(xrd.amount_held).toEqual(11499.67355617102);
-    expect(usdc.amount_held).toEqual(1806.988328022048);
-    expect(usdt.amount_held).toEqual(1806.988328022048);
-    expect(lendapp.amount_held).toEqual(1000);
+  if (xrd && shard) {
+    expect(xrd.amount_held).toEqual(20000);
+    expect(shard.amount_held).toEqual(22);
   }
 });
 
@@ -87,22 +77,22 @@ test("Test Get Non Fungible Resources", async () => {
     resource_map.set(resource.address, resource);
   });
 
-  const esoteric_bugs = resource_map.get(
-    "resource_tdx_2_1n2tshwgfv9e0mrmhghvur44a6682s8g70t0rmh95geqmepcjgvch8t",
+  const loan_receipt = resource_map.get(
+    "resource_tdx_2_1ng08wj8qq35zl74uxgxpl9yu2fr3mrqxxr7x3nyrvptffds6tekerh",
   );
-  const greeks_gods = resource_map.get(
-    "resource_tdx_2_1n2vnaz8re5c2sdydztnesjp0u4gqr5ff02pu95urpluvlg95xy8a38",
+  const marker_receipt = resource_map.get(
+    "resource_tdx_2_1nt8dz29mh8pjgte9gx5992qczsykj27cvckrlycv3pj66ykyxhg2we",
   );
 
-  expect(esoteric_bugs).toBeDefined();
-  expect(greeks_gods).toBeDefined();
+  expect(loan_receipt).toBeDefined();
+  expect(marker_receipt).toBeDefined();
 
-  if (esoteric_bugs && greeks_gods) {
-    const eb_ids = ["<EsotericBugs_1>", "<EsotericBugs_2>"];
-    const gg_ids = ["<Greeks_Gods_1>", "<Greeks_Gods_2>"];
+  if (loan_receipt && marker_receipt) {
+    const receipt_id = ["#25#"];
+    const marker_id = ["#10#"];
 
-    expect(esoteric_bugs.ids_held.sort()).toEqual(eb_ids);
-    expect(greeks_gods.ids_held.sort()).toEqual(gg_ids);
+    expect(loan_receipt.ids_held.sort()).toEqual(receipt_id);
+    expect(marker_receipt.ids_held.sort()).toEqual(marker_id);
   }
 });
 
@@ -110,40 +100,40 @@ test("Test Get Non Fungible Ids", async () => {
   let transactionProcessor = GatewayProcessor.fromNetworkId(NetworkId.Stokenet);
   let ids_held = await transactionProcessor.getNonFungibleIdsHeldBy(
     toolkit_test_account,
-    "resource_tdx_2_1n2tshwgfv9e0mrmhghvur44a6682s8g70t0rmh95geqmepcjgvch8t",
+    "resource_tdx_2_1ng08wj8qq35zl74uxgxpl9yu2fr3mrqxxr7x3nyrvptffds6tekerh",
   );
 
-  const eb_ids = ["<EsotericBugs_1>", "<EsotericBugs_2>"];
-  expect(ids_held.sort()).toEqual(eb_ids);
+  const loan_ids = ["#25#"];
+  expect(ids_held.sort()).toEqual(loan_ids);
 });
 
 test("Test Get Non Fungible Items", async () => {
   let transactionProcessor = GatewayProcessor.fromNetworkId(NetworkId.Stokenet);
-  const eb_ids = ["<EsotericBugs_1>", "<EsotericBugs_2>"];
+  const loan_id = ["#25#"];
 
   const nf_items = await transactionProcessor.getNonFungibleItemsFromIds(
-    "resource_tdx_2_1n2tshwgfv9e0mrmhghvur44a6682s8g70t0rmh95geqmepcjgvch8t",
-    eb_ids,
+    "resource_tdx_2_1ng08wj8qq35zl74uxgxpl9yu2fr3mrqxxr7x3nyrvptffds6tekerh",
+    loan_id,
   );
   const expected_items: NonFungibleItem[] = [
     {
-      id: eb_ids[0],
-      name: "CirCricket",
-      description: "A mix of sport and computing",
-      image_url: "https://i.ibb.co/W2jXK6B/circricket.png",
+      id: loan_id[0],
+      description: "",
       non_fungible_data: new Map<string, string>([
-        ["Insect_Type", "Robot Cricket"],
-        ["Insect_TypeType", "None"],
-      ]),
-    },
-    {
-      id: eb_ids[1],
-      name: "Spiderboard",
-      description: "Not recommended for arachnophobe developers",
-      image_url: "https://i.ibb.co/LtJXCqJ/spiderboard.png",
-      non_fungible_data: new Map<string, string>([
-        ["Insect_Type", "Robot Spider"],
-        ["Insect_TypeType", "None"],
+        [
+          "collateral",
+          "resource_tdx_2_1tknxxxxxxxxxradxrdxxxxxxxxx009923554798xxxxxxxxxtfd2jc",
+        ],
+        [
+          "parent_address",
+          "resource_tdx_2_1tknxxxxxxxxxradxrdxxxxxxxxx009923554798xxxxxxxxxtfd2jc",
+        ],
+        ["is_pool_unit_collateral", "false"],
+        ["collateral_amount", "1000"],
+        ["minted_stab", "28.669"],
+        ["collateral_stab_ratio", "34.880881788691618124"],
+        ["status", "Marked"],
+        ["marker_id", "10"],
       ]),
     },
   ];
