@@ -818,6 +818,7 @@ export class GatewayProcessor {
                 affected_global_entities: true,
                 balance_changes: true,
                 raw_hex: true,
+                receipt_events: true,
               },
             },
           });
@@ -835,6 +836,7 @@ export class GatewayProcessor {
                 affected_global_entities: true,
                 balance_changes: true,
                 raw_hex: true,
+                receipt_events: true,
               },
             },
           });
