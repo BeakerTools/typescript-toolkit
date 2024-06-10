@@ -114,6 +114,8 @@ export class GatewayProcessor {
             aggregation_level: aggregationLevel,
             opt_ins: {
               ancestor_identities: true,
+              component_royalty_vault_balance: true,
+              package_royalty_vault_balance: true,
             },
           },
         });
