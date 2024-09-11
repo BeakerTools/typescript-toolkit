@@ -155,3 +155,16 @@ test("Test Get Nft Owner", async () => {
     "account_tdx_2_1298yfy03ertz3dywxqejsvswrz9448dxzw6ak3dz5cdey8gccu63fg",
   );
 });
+
+test("Test transaction stream", async () => {
+  const transactionProcessor = GatewayProcessor.fromNetworkId(
+    NetworkId.Stokenet,
+  );
+
+  let stream = await transactionProcessor.fullTransactionStream(
+    66000000,
+    undefined,
+    10,
+  );
+  expect(stream.length).toEqual(10);
+});

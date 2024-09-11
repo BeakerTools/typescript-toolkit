@@ -134,9 +134,11 @@ export class GatewayProcessor {
   async fullTransactionStream(
     from_state_version: number,
     entity_filter?: string[],
+    max_amount?: number,
   ): Promise<CommittedTransactionInfo[]> {
     let cursor: string | null | undefined = undefined;
     let full_stream: CommittedTransactionInfo[] = [];
+    const stop_amount = max_amount ? max_amount : Number.MAX_SAFE_INTEGER;
     do {
       let stream: StreamTransactionsResponse = await this.transactionStream(
         from_state_version,
@@ -155,9 +157,9 @@ export class GatewayProcessor {
             ): tx is CommittedTransactionInfo => tx !== null,
           ),
       );
-    } while (cursor);
+    } while (cursor && full_stream.length < stop_amount);
 
-    return full_stream;
+    return full_stream.slice(0, stop_amount);
   }
 
   /**
