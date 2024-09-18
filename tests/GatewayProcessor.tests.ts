@@ -1,4 +1,4 @@
-import { GatewayProcessor } from "../src/GatewayProcessor/GatewayProcessor";
+import { GatewayProcessor } from "../src";
 import { NetworkId } from "@radixdlt/radix-engine-toolkit";
 import {
   ComponentAddress,
@@ -6,7 +6,7 @@ import {
   NonFungibleItem,
   NonFungibleResource,
   ResourceAddress,
-} from "../src/Types/RadixTypes";
+} from "../src";
 
 const toolkit_test_account: ComponentAddress =
   "account_tdx_2_12xckkd70cgwp6a8k2td9d9r0kch7h3dl47ghpvwkdcl7uj7wyw99ca";
@@ -31,6 +31,41 @@ test("Test Parse Resource Information", async () => {
         "https://assets.radixdlt.com/icons/icon-xrd-32x32.png",
       );
       expect(xrd_resource.information.symbol).toBe("XRD");
+    }
+  }
+});
+
+test("Test Parse Non Fungible Resource Information", async () => {
+  let transactionProcessor = GatewayProcessor.fromNetworkId(NetworkId.Mainnet);
+  let resource_map = await transactionProcessor.getResourcesInformation(
+    ["resource_rdx1n2ekdd2m0jsxjt9wasmu3p49twy2yfalpaa6wf08md46sk8dfmldnd"],
+    ["tags"],
+  );
+
+  let scorps = resource_map.get(
+    "resource_rdx1n2ekdd2m0jsxjt9wasmu3p49twy2yfalpaa6wf08md46sk8dfmldnd",
+  );
+  expect(scorps).toBeDefined();
+
+  if (scorps) {
+    expect(scorps.type).toBe("NonFungible");
+    let tags = scorps.information.other_metadata.get("tags");
+    expect(tags).toBeDefined();
+
+    if (tags) {
+      if (tags.programmatic_json.kind == "Array") {
+        let tags_value = tags.programmatic_json.elements
+          .map((tag) => {
+            if (tag.kind == "String") {
+              return tag.value;
+            } else {
+              return "";
+            }
+          })
+          .sort((a, b) => a.localeCompare(b));
+
+        expect(tags_value).toEqual(["Art", "Collectible", "NFT"]);
+      }
     }
   }
 });

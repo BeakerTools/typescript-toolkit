@@ -1,5 +1,6 @@
 import {
   CommittedTransactionInfo,
+  EntityMetadataItemValue,
   GatewayApiClient,
   NonFungibleResourcesCollectionItem,
   ResourceAggregationLevel,
@@ -129,6 +130,7 @@ export class GatewayProcessor {
    * Fetches a stream of committed transactions from a specified ledger state version.
    * @param from_state_version Starting ledger state version.
    * @param entity_filter Array of entities that need to be affected for a transaction to be returned.
+   * @param max_amount Max amount of transactions to include.
    * @returns A promise resolving to an array of CommittedTransactionInfo objects.
    */
   async fullTransactionStream(
@@ -267,10 +269,12 @@ export class GatewayProcessor {
   /**
    * Retrieves information about resources associated with specified resource addresses.
    * @param resource_addresses Array of resource addresses.
+   * @param additional_metadata Array of metadata keys to parse.
    * @returns A promise resolving to a map containing resource addresses as keys and Resource objects as values.
    */
   async getResourcesInformation(
     resource_addresses: ResourceAddress[],
+    additional_metadata?: string[],
   ): Promise<Map<ResourceAddress, ResourceInformation>> {
     let resource_map = new Map<ResourceAddress, ResourceInformation>();
     const batches = divideInBatches(resource_addresses, 20);
@@ -278,7 +282,7 @@ export class GatewayProcessor {
     await Promise.all(
       batches.map(async (batch) => {
         const items = await limit(() => {
-          return this.limitedResourcesInformation(batch);
+          return this.limitedResourcesInformation(batch, additional_metadata);
         });
         items.forEach((value, key) => {
           resource_map.set(key, value);
@@ -606,6 +610,7 @@ export class GatewayProcessor {
    */
   private async limitedResourcesInformation(
     resource_addresses: ResourceAddress[],
+    additional_metadata?: string[],
   ): Promise<Map<ResourceAddress, ResourceInformation>> {
     let resource_map = new Map<ResourceAddress, ResourceInformation>();
 
@@ -616,6 +621,10 @@ export class GatewayProcessor {
         let description: string | undefined;
         let icon: string | undefined;
         let symbol: string | undefined;
+        let other_metadata: Map<string, EntityMetadataItemValue> = new Map<
+          string,
+          EntityMetadataItemValue
+        >();
 
         item.metadata.items.forEach((metadata) => {
           switch (metadata.key) {
@@ -661,6 +670,15 @@ export class GatewayProcessor {
                   symbol = field.value.toString();
                 }
               }
+              break;
+            }
+            default: {
+              if (
+                additional_metadata &&
+                additional_metadata.includes(metadata.key)
+              ) {
+                other_metadata.set(metadata.key, metadata.value);
+              }
             }
           }
         });
@@ -675,6 +693,7 @@ export class GatewayProcessor {
                   address: item.address,
                   description: description,
                   icon: icon,
+                  other_metadata: other_metadata,
                 },
               });
               break;
@@ -688,6 +707,7 @@ export class GatewayProcessor {
                   description: description,
                   icon: icon,
                   symbol: symbol,
+                  other_metadata: other_metadata,
                 },
               });
               break;

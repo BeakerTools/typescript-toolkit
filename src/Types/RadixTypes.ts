@@ -1,4 +1,5 @@
 import BigNumber from "bignumber.js";
+import { EntityMetadataItemValue } from "@radixdlt/babylon-gateway-api-sdk";
 
 export type AccountAddress = string;
 export type ComponentAddress = string;
@@ -27,7 +28,7 @@ export type NFT = {
 export type NonFungibleData = {
   name?: string;
   value: string;
-}
+};
 
 export type Resource =
   | {
@@ -72,6 +73,7 @@ export type FungibleResourceInformation = {
   description?: string;
   icon?: string;
   symbol?: string;
+  other_metadata: Map<string, EntityMetadataItemValue>;
 };
 
 export type NonFungibleResourceInformation = {
@@ -79,6 +81,7 @@ export type NonFungibleResourceInformation = {
   address: string;
   description?: string;
   icon?: string;
+  other_metadata: Map<string, EntityMetadataItemValue>;
 };
 
 export type NonFungibleItem = {
@@ -104,10 +107,12 @@ export const defaultNonFungibleResource: NonFungibleResource = {
 export const defaultFungibleResourceInformation: FungibleResourceInformation = {
   address: "",
   name: "",
+  other_metadata: new Map<string, EntityMetadataItemValue>(),
 };
 
 export const defaultNonFungibleResourceInformation: NonFungibleResourceInformation =
   {
     address: "",
     name: "",
+    other_metadata: new Map<string, EntityMetadataItemValue>(),
   };
