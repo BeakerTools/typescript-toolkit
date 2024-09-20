@@ -504,10 +504,12 @@ export class GatewayProcessor {
    * Retrieves non-fungibles items associated with specified resource address and ids.
    * @param resource_address Address of the non-fungible items.
    * @param ids Ids of the non-fungible items.
+   * @param at_ledger_state State against which to make the query.
    */
   async getNonFungibleItemsFromIds(
     resource_address: ResourceAddress,
     ids: string[],
+    at_ledger_state?: number,
   ): Promise<NonFungibleItem[]> {
     const nft_batches = divideInBatches(ids, 100);
     const limit = pLimit(this._concurrencyLimit);
@@ -515,7 +517,7 @@ export class GatewayProcessor {
       await Promise.all(
         nft_batches.map(async (batch) => {
           let items_data = await limit(async () =>
-            this.getNonFungibleData(resource_address, batch),
+            this.getNonFungibleData(resource_address, batch, at_ledger_state),
           );
           return items_data.map((item) => {
             let description: string = "";
@@ -874,10 +876,19 @@ export class GatewayProcessor {
   private async getNonFungibleData(
     address: ResourceAddress,
     ids: string[],
+    at_ledger_state?: number,
   ): Promise<StateNonFungibleDetailsResponseItem[]> {
     return withMaxLoops(
       async () => {
-        return await this._api.state.getNonFungibleData(address, ids);
+        return await this._api.state.getNonFungibleData(
+          address,
+          ids,
+          at_ledger_state
+            ? {
+                state_version: at_ledger_state,
+              }
+            : undefined,
+        );
       },
       "Could not query non fungible data",
       this._maxLoops,

@@ -203,3 +203,24 @@ test("Test transaction stream", async () => {
   );
   expect(stream.length).toEqual(10);
 });
+
+test("Test get data with state", async () => {
+  const transactionProcessor = GatewayProcessor.fromNetworkId(
+    NetworkId.Mainnet,
+  );
+
+  let stream = await transactionProcessor.getNonFungibleItemsFromIds(
+    "resource_rdx1n2pf8l2qwzzqz5lyuhmdnlxcjqdyxksa5uhtzjjx8zg2tegcdqkd7p",
+    ["#1750#"],
+    135409909,
+  );
+
+  expect(stream.length).toEqual(1);
+
+  const item = stream[0];
+
+  expect(item.description).toBeDefined();
+  expect(item.non_fungible_data).toBeDefined();
+  expect(item.name).toBeDefined();
+  expect(item.image_url).toBeDefined();
+});
