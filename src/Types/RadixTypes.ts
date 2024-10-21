@@ -1,28 +1,16 @@
 import BigNumber from "bignumber.js";
 import { EntityMetadataItemValue } from "@radixdlt/babylon-gateway-api-sdk";
 
-export type AccountAddress = string;
-export type ComponentAddress = string;
-export type NonFungibleGlobalId = string;
-export type NonFungibleLocalId = string;
-export type PackageAddress = string;
-export type ResourceAddress = string;
-
 export type Decimal = number | string | BigNumber;
 
-export type FungibleBucket = {
-  address: ResourceAddress;
+export type Fungibles = {
+  address: string;
   amount: Decimal;
 };
 
-export type NonFungibleBucket = {
-  address: ResourceAddress;
-  ids: NonFungibleLocalId[];
-};
-
-export type NFT = {
-  address: NonFungibleGlobalId;
-  id: NonFungibleLocalId;
+export type NonFungibles = {
+  address: string;
+  ids: string[];
 };
 
 export type NonFungibleData = {

@@ -1,14 +1,12 @@
-import { GatewayProcessor } from "../src";
-import { NetworkId } from "@radixdlt/radix-engine-toolkit";
 import {
-  ComponentAddress,
-  FungibleResource,
-  NonFungibleItem,
-  NonFungibleResource,
-  ResourceAddress,
+  GatewayProcessor,
+  manifestBucket,
+  StringManifestBuilder,
 } from "../src";
+import { NetworkId } from "@radixdlt/radix-engine-toolkit";
+import { FungibleResource, NonFungibleItem, NonFungibleResource } from "../src";
 
-const toolkit_test_account: ComponentAddress =
+const toolkit_test_account: string =
   "account_tdx_2_12xckkd70cgwp6a8k2td9d9r0kch7h3dl47ghpvwkdcl7uj7wyw99ca";
 
 test("Test Parse Resource Information", async () => {
@@ -77,7 +75,7 @@ test("Test Get Fungible Resources", async () => {
 
   expect(fungibles_held.length).toEqual(2);
 
-  let resource_map = new Map<ResourceAddress, FungibleResource>();
+  let resource_map = new Map<string, FungibleResource>();
   fungibles_held.forEach((resource) => {
     resource_map.set(resource.address, resource);
   });
@@ -107,7 +105,7 @@ test("Test Get Non Fungible Resources", async () => {
 
   expect(non_fungibles_held.length).toEqual(2);
 
-  let resource_map = new Map<ResourceAddress, NonFungibleResource>();
+  let resource_map = new Map<string, NonFungibleResource>();
   non_fungibles_held.forEach((resource) => {
     resource_map.set(resource.address, resource);
   });
@@ -223,4 +221,44 @@ test("Test get data with state", async () => {
   expect(item.non_fungible_data).toBeDefined();
   expect(item.name).toBeDefined();
   expect(item.image_url).toBeDefined();
+});
+
+test("Manifest builder ", () => {
+  const account =
+    "account_tdx_2_12yx3ftggkd62d5hew8pfkm9tfffenyj5zy4gvd2hdemqck64ywsvx4";
+  const component =
+    "component_tdx_2_1crttvh8h9y9f23r73s89vr78gtsv4qm0k6t3eg8vlj6jre0x7ykx88";
+  const xrd =
+    "resource_tdx_2_1tknxxxxxxxxxradxrdxxxxxxxxx009923554798xxxxxxxxxtfd2jc";
+
+  const manifest = new StringManifestBuilder()
+    .fungibleBucket(account, { address: xrd, amount: 120 }, "bucket")
+    .callMethod(component, "bid", ["1u64", manifestBucket("bucket")])
+    .depositBatch(account)
+    .build();
+
+  expect(manifest).toEqual(
+    `CALL_METHOD
+\tAddress("account_tdx_2_12yx3ftggkd62d5hew8pfkm9tfffenyj5zy4gvd2hdemqck64ywsvx4")
+\t"withdraw"
+\tAddress("resource_tdx_2_1tknxxxxxxxxxradxrdxxxxxxxxx009923554798xxxxxxxxxtfd2jc")
+\tDecimal("120")
+;
+TAKE_FROM_WORKTOP
+\tAddress("resource_tdx_2_1tknxxxxxxxxxradxrdxxxxxxxxx009923554798xxxxxxxxxtfd2jc")
+\tDecimal("120")
+\tBucket("bucket")
+;
+CALL_METHOD
+\tAddress("component_tdx_2_1crttvh8h9y9f23r73s89vr78gtsv4qm0k6t3eg8vlj6jre0x7ykx88")
+\t"bid"
+\t1u64
+\tBucket("bucket")
+;
+CALL_METHOD
+\tAddress("account_tdx_2_12yx3ftggkd62d5hew8pfkm9tfffenyj5zy4gvd2hdemqck64ywsvx4")
+\t"deposit_batch"
+\tExpression("ENTIRE_WORKTOP")
+;`,
+  );
 });
