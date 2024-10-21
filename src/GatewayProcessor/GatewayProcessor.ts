@@ -127,12 +127,14 @@ export class GatewayProcessor {
   /**
    * Fetches a stream of committed transactions from a specified ledger state version.
    * @param from_state_version Starting ledger state version.
+   * @param receipt_state_changes Whether to include or not state changes.
    * @param entity_filter Array of entities that need to be affected for a transaction to be returned.
    * @param max_amount Max amount of transactions to include.
    * @returns A promise resolving to an array of CommittedTransactionInfo objects.
    */
   async fullTransactionStream(
     from_state_version: number,
+    receipt_state_changes?: boolean,
     entity_filter?: string[],
     max_amount?: number,
   ): Promise<CommittedTransactionInfo[]> {
@@ -142,6 +144,7 @@ export class GatewayProcessor {
     do {
       let stream: StreamTransactionsResponse = await this.transactionStream(
         from_state_version,
+        receipt_state_changes,
         cursor,
         entity_filter,
       );
@@ -824,6 +827,7 @@ export class GatewayProcessor {
 
   private async transactionStream(
     from_state_version: number,
+    receipt_state_changes?: boolean,
     cursor?: string,
     filters?: string[],
   ): Promise<StreamTransactionsResponse> {
@@ -843,6 +847,9 @@ export class GatewayProcessor {
                 balance_changes: true,
                 raw_hex: true,
                 receipt_events: true,
+                receipt_state_changes: receipt_state_changes
+                  ? receipt_state_changes
+                  : false,
               },
             },
           });

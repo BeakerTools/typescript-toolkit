@@ -196,6 +196,7 @@ test("Test transaction stream", async () => {
 
   let stream = await transactionProcessor.fullTransactionStream(
     66000000,
+    false,
     undefined,
     10,
   );
