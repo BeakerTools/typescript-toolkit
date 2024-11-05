@@ -521,7 +521,7 @@ export class GatewayProcessor {
             this.getNonFungibleData(resource_address, batch, at_ledger_state),
           );
           return items_data.map((item) => {
-            let description: string = "";
+            let description: string | undefined;
             let image_url: string | undefined;
             let non_fungible_data = new Map<string, string>();
             let name: string | undefined;
@@ -557,7 +557,8 @@ export class GatewayProcessor {
               id: item.non_fungible_id,
               image_url: image_url,
               name: name,
-              non_fungible_data: non_fungible_data,
+              non_fungible_data:
+                non_fungible_data.size > 0 ? non_fungible_data : undefined,
             };
           });
         }),
