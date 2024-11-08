@@ -58,7 +58,7 @@ export class StringManifestBuilder {
     amount: Decimal,
     proofName: string,
   ): this {
-    return this.callMethod(account, "create_proof_of_non_fungibles", [
+    return this.callMethod(account, "create_proof_of_amount", [
       manifestAddress(resourceAddress),
       manifestDecimal(amount),
     ]).popFromAuthZone(proofName);
@@ -69,7 +69,7 @@ export class StringManifestBuilder {
     nonFungibles: NonFungibles,
     proofName: string,
   ): this {
-    return this.callMethod(account, "create_proof_of_amount", [
+    return this.callMethod(account, "create_proof_of_non_fungibles", [
       manifestAddress(nonFungibles.address),
       manifestLocalIdArray(nonFungibles.ids),
     ]).popFromAuthZone(proofName);

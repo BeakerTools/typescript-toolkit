@@ -3,7 +3,11 @@ import {
   manifestBucket,
   StringManifestBuilder,
 } from "../src";
-import { NetworkId } from "@radixdlt/radix-engine-toolkit";
+import {
+  LTSRadixEngineToolkit,
+  NetworkId,
+  PrivateKey,
+} from "@radixdlt/radix-engine-toolkit";
 import { FungibleResource, NonFungibleItem, NonFungibleResource } from "../src";
 
 const toolkit_test_account: string =
@@ -262,4 +266,47 @@ CALL_METHOD
 \tExpression("ENTIRE_WORKTOP")
 ;`,
   );
+});
+
+test("WTFFFFF", async () => {
+  const processor = GatewayProcessor.fromNetworkId(NetworkId.Stokenet, 1);
+  const privateKey = new PrivateKey.Ed25519(
+    new Uint8Array(
+      "209,214,17,209,221,157,43,100,145,156,29,165,22,196,133,74,217,107,190,184,62,45,127,80,20,98,106,128,241,218,153,15"
+        .split(",")
+        .map((char) => parseInt(char, 16)),
+    ),
+  );
+  const address = await LTSRadixEngineToolkit.Derive.virtualAccountAddress(
+    privateKey.publicKey(),
+    NetworkId.Stokenet,
+  );
+  console.log(address);
+  const manifest = `CALL_METHOD
+\tAddress("account_tdx_2_12xrs867hytec3mx63dujxwezdn7jsqw937nqjrvvlj9xzkxk40rflu")
+\t"lock_fee"
+\tDecimal("20")
+;
+CALL_METHOD
+\tAddress("account_tdx_2_12xrs867hytec3mx63dujxwezdn7jsqw937nqjrvvlj9xzkxk40rflu")
+\t"create_proof_of_amount"
+\tAddress("resource_tdx_2_1t42n866d9cure57dy4yvg4wfnze3lc4ptwvyqsgtdt4zautca350sd")
+\tDecimal("1")
+;
+MINT_NON_FUNGIBLE
+\tAddress("resource_tdx_2_1n2zyd7q88nampc23e4urhf8w0ymuk7nk0da25x38duhqsf08nry0qa")
+\tMap<NonFungibleLocalId, Tuple>(NonFungibleLocalId("<OKK_1>") => Tuple(Tuple("CirCricket", "A mix of sport and computing", "https://i.ibb.co/W2jXK6B/circricket.png", "None")), NonFungibleLocalId("<OKK_2>") => Tuple(Tuple("Spiderboard", "Not recommended for arachnophobe developers", "https://i.ibb.co/LtJXCqJ/spiderboard.png", "None")), NonFungibleLocalId("<OKK_3>") => Tuple(Tuple("Flyware", "Even RDX Works cannot get rid of that", "https://i.ibb.co/nR3gZ90/ultimate-bug.png", "None")), NonFungibleLocalId("<OK_4>") => Tuple(Tuple("CirCricket", "A mix of sport and computing", "https://i.ibb.co/W2jXK6B/circricket.png", "None")), NonFungibleLocalId("<OK_5>") => Tuple(Tuple("Spiderboard", "Not recommended for arachnophobe developers", "https://i.ibb.co/LtJXCqJ/spiderboard.png", "None")), NonFungibleLocalId("<OK_6>") => Tuple(Tuple("Flyware", "Even RDX Works cannot get rid of that", "https://i.ibb.co/nR3gZ90/ultimate-bug.png", "None")))
+;
+CALL_METHOD
+\tAddress("account_tdx_2_12xrs867hytec3mx63dujxwezdn7jsqw937nqjrvvlj9xzkxk40rflu")
+\t"deposit_batch"
+\tExpression("ENTIRE_WORKTOP")
+;
+`;
+  const result = await processor.submitRawManifest(
+    manifest,
+    NetworkId.Stokenet,
+    privateKey,
+  );
+  console.log(result);
 });
