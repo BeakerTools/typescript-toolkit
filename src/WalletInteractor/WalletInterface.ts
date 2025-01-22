@@ -15,7 +15,6 @@ import { FungibleResource, NonFungibleItem } from "../Types/RadixTypes";
 import { GatewayProcessor } from "../GatewayProcessor/GatewayProcessor";
 import { AuthenticationToken, RolaConfig } from "../Types/Rola";
 import { withTimeoutAndUpdate } from "./Utils";
-import { NonFungibleLocalId } from "../../types";
 
 export class WalletInterface {
   private readonly _toolkit: RadixDappToolkit;
@@ -24,7 +23,7 @@ export class WalletInterface {
   private readonly _withRola: RolaConfig | undefined;
   private _account: string | null;
   private _fungibles: Map<string, FungibleResource>;
-  private _nonFungibles: Map<string, Map<NonFungibleLocalId, NonFungibleItem>>;
+  private _nonFungibles: Map<string, Map<string, NonFungibleItem>>;
   private _trackedNonFungibles: Set<string>;
   private _xrdAddress: string;
 
@@ -42,10 +41,7 @@ export class WalletInterface {
 
     this._account = null;
     this._fungibles = new Map<string, FungibleResource>();
-    this._nonFungibles = new Map<
-      string,
-      Map<NonFungibleLocalId, NonFungibleItem>
-    >();
+    this._nonFungibles = new Map<string, Map<string, NonFungibleItem>>();
     this._trackedNonFungibles = new Set<string>();
     this._xrdAddress = "";
 
@@ -67,10 +63,7 @@ export class WalletInterface {
     this._toolkit.walletApi.walletData$.subscribe(async (walletData) => {
       if (walletData.accounts.length == 0) {
         this._fungibles = new Map<string, FungibleResource>();
-        this._nonFungibles = new Map<
-          string,
-          Map<NonFungibleLocalId, NonFungibleItem>
-        >();
+        this._nonFungibles = new Map<string, Map<string, NonFungibleItem>>();
         this._account = null;
       } else {
         this._account = walletData.accounts[0].address;
@@ -119,7 +112,7 @@ export class WalletInterface {
     return Array.from(this._fungibles.values());
   }
 
-  public nonFungibles(): [string, Map<NonFungibleLocalId, NonFungibleItem>][] {
+  public nonFungibles(): [string, Map<string, NonFungibleItem>][] {
     return Array.from(this._nonFungibles.entries());
   }
 
@@ -170,7 +163,7 @@ export class WalletInterface {
         ids,
       );
 
-      let new_map = new Map<NonFungibleLocalId, NonFungibleItem>();
+      let new_map = new Map<string, NonFungibleItem>();
       items.forEach((item) => {
         new_map.set(item.id, item);
       });
