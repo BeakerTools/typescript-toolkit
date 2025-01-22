@@ -610,6 +610,15 @@ export class GatewayProcessor {
   }
 
   /**
+   *
+   */
+  async xrdAddress(): Promise<string> {
+    return this._api.status.getNetworkConfiguration().then((config) => {
+      return config.well_known_addresses.xrd;
+    });
+  }
+
+  /**
    * Takes up to 20 resource addresses as input
    */
   private async limitedResourcesInformation(
