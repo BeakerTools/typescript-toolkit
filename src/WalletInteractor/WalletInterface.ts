@@ -32,6 +32,7 @@ export class WalletInterface {
     toolkit: RadixDappToolkit,
     withRola?: RolaConfig,
     trackedNonFungibles?: string[],
+    onWalletConnection?: () => Promise<void>,
     debugMode?: boolean,
   ) {
     this._toolkit = toolkit;
@@ -75,6 +76,10 @@ export class WalletInterface {
         await this.updateTokens();
         await this.updateNonFungibles();
         this._xrdAddress = await this._processor.xrdAddress();
+
+        if (onWalletConnection !== undefined) {
+          await onWalletConnection();
+        }
       }
     });
 
@@ -104,7 +109,7 @@ export class WalletInterface {
   ////////////////////////////////////////////////////////////////////////////
 
   public amountHeld(resource: string): number {
-    const amount = this._fungibles.get(resource)?.amount_held;
+    const amount = this._fungibles.get(resource)?.amountHeld;
     return amount ? amount : 0;
   }
 
@@ -204,7 +209,7 @@ export class WalletInterface {
   private async verifyChallenge(
     proof: SignedChallenge,
   ): Promise<AuthenticationToken> {
-    return await fetch(this._withRola!.verify_challenge_path, {
+    return await fetch(this._withRola!.verifyChallengePath, {
       method: "POST",
       body: JSON.stringify({
         signedChallenge: proof,
@@ -214,7 +219,7 @@ export class WalletInterface {
   }
 
   private async getChallenge(): Promise<string> {
-    const response = await fetch(this._withRola!.create_challenge_path, {
+    const response = await fetch(this._withRola!.createChallengePath, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

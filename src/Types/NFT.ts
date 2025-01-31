@@ -1,3 +1,5 @@
+import { NonFungibles } from "./RadixTypes";
+
 export class NFT {
   private readonly _resourceAddress: string;
   private readonly _localId: string;
@@ -37,5 +39,9 @@ export class NFT {
 
   equals(other: NFT): boolean {
     return this.globalId() === other.globalId();
+  }
+
+  toNonFungibles(): NonFungibles {
+    return { address: this._localId, ids: [this.localId()] };
   }
 }

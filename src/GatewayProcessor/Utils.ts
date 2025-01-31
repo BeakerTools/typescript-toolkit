@@ -143,17 +143,17 @@ export function parseNonFungibleData(
   }
 }
 
-function dataArrayToString(data_array: ProgrammaticScryptoSborValue[]): string {
-  let str_array = data_array.map((elem) => {
+function dataArrayToString(dataArray: ProgrammaticScryptoSborValue[]): string {
+  let strArray = dataArray.map((elem) => {
     return parseNonFungibleData(elem).value;
   });
-  return arrayStringToString(str_array);
+  return arrayStringToString(strArray);
 }
 
-function arrayStringToString(array_str: string[]): string {
+function arrayStringToString(arrayStr: string[]): string {
   let str = "";
-  array_str.forEach((sub_str) => {
-    str += sub_str + ", ";
+  arrayStr.forEach((subStr) => {
+    str += subStr + ", ";
   });
 
   str = str.slice(0, -2);
@@ -162,10 +162,10 @@ function arrayStringToString(array_str: string[]): string {
 }
 
 function mapToString(map: ProgrammaticScryptoSborValueMapEntry[]): string {
-  let str = map.map((value_entry) => {
-    let value = parseNonFungibleData(value_entry.value);
-    let kind = parseNonFungibleData(value_entry.key);
-    return value.value + " => " + kind.value;
+  let str = map.map((valueEntry) => {
+    let value = parseNonFungibleData(valueEntry.value);
+    let kind = parseNonFungibleData(valueEntry.key);
+    return kind.value + " => " + value.value;
   });
 
   return arrayStringToString(str);

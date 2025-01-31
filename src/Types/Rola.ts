@@ -5,7 +5,7 @@ export type AuthenticationToken = {
 };
 
 export type RolaConfig = {
-  token_name: string;
-  verify_challenge_path: string;
-  create_challenge_path: string;
+  tokenName: string;
+  verifyChallengePath: string;
+  createChallengePath: string;
 };

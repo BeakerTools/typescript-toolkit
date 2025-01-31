@@ -26,7 +26,7 @@ test("Test Parse Resource Information", async () => {
         "The Radix Public Network's native token, used to pay the network's required transaction fees and to secure the network through staking to its validator nodes.",
       );
       expect(xrd_resource.information.icon).toBe(
-        "https://assets.radixdlt.com/icons/icon-xrd-32x32.png",
+        "https://assets.radixdlt.com/icons/icon-xrd.png",
       );
       expect(xrd_resource.information.symbol).toBe("XRD");
     }
@@ -47,7 +47,7 @@ test("Test Parse Non Fungible Resource Information", async () => {
 
   if (scorps) {
     expect(scorps.type).toBe("NonFungible");
-    let tags = scorps.information.other_metadata.get("tags");
+    let tags = scorps.information.otherMetadata.get("tags");
     expect(tags).toBeDefined();
 
     if (tags) {
@@ -91,8 +91,8 @@ test("Test Get Fungible Resources", async () => {
   expect(shard).toBeDefined();
 
   if (xrd && shard) {
-    expect(xrd.amount_held).toEqual(20000);
-    expect(shard.amount_held).toEqual(22);
+    expect(xrd.amountHeld).toEqual(20000);
+    expect(shard.amountHeld).toEqual(22);
   }
 });
 
@@ -124,8 +124,8 @@ test("Test Get Non Fungible Resources", async () => {
     const receipt_id = ["#25#"];
     const marker_id = ["#10#"];
 
-    expect(loan_receipt.ids_held.sort()).toEqual(receipt_id);
-    expect(marker_receipt.ids_held.sort()).toEqual(marker_id);
+    expect(loan_receipt.idsHeld.sort()).toEqual(receipt_id);
+    expect(marker_receipt.idsHeld.sort()).toEqual(marker_id);
   }
 });
 
@@ -152,7 +152,7 @@ test("Test Get Non Fungible Items", async () => {
     {
       id: loan_id[0],
       description: "",
-      non_fungible_data: new Map<string, string>([
+      nonFungibleData: new Map<string, string>([
         [
           "collateral",
           "resource_tdx_2_1tknxxxxxxxxxradxrdxxxxxxxxx009923554798xxxxxxxxxtfd2jc",
@@ -219,9 +219,9 @@ test("Test get data with state", async () => {
   const item = stream[0];
 
   expect(item.description).toBeDefined();
-  expect(item.non_fungible_data).toBeDefined();
+  expect(item.nonFungibleData).toBeDefined();
   expect(item.name).toBeDefined();
-  expect(item.image_url).toBeDefined();
+  expect(item.imageUrl).toBeDefined();
 });
 
 test("Manifest builder ", () => {
@@ -262,4 +262,28 @@ CALL_METHOD
 \tExpression("ENTIRE_WORKTOP")
 ;`,
   );
+});
+
+test("", async () => {
+  let transactionProcessor = GatewayProcessor.fromNetworkId(NetworkId.Stokenet);
+  let non_fungible = await transactionProcessor.getNonFungibleItemsFromIds(
+    "resource_tdx_2_1ngp0s9w7pghjg7lgugsyhl0skrwgn53h8axcrtczp3qcnwp46l3768",
+    ["{cad0386d2bc626d9-9ef343853cea61f1-ae7218d22bc9e5c1-4b88bea1d3fda535}"],
+  );
+  console.log(non_fungible);
+  const regex = /([a-zA-Z0-9_]+) => (\d+)/g;
+  const lockedMap = new Map<string, number>();
+
+  let match;
+  while (
+    (match = regex.exec(
+      non_fungible[0]!.nonFungibleData!.get("locked_fungible_resources")!,
+    )) !== null
+  ) {
+    lockedMap.set(match[1], parseInt(match[2], 10));
+  }
+
+  console.log(lockedMap);
+
+  expect(0);
 });

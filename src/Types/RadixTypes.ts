@@ -34,7 +34,7 @@ export type FungibleResource = {
   description?: string;
   icon?: string;
   symbol?: string;
-  amount_held: number;
+  amountHeld: number;
 };
 
 export type NonFungibleResource = {
@@ -42,7 +42,7 @@ export type NonFungibleResource = {
   address: string;
   description?: string;
   icon?: string;
-  ids_held: string[];
+  idsHeld: string[];
 };
 
 export type ResourceInformation =
@@ -61,7 +61,7 @@ export type FungibleResourceInformation = {
   description?: string;
   icon?: string;
   symbol?: string;
-  other_metadata: Map<string, EntityMetadataItemValue>;
+  otherMetadata: Map<string, EntityMetadataItemValue>;
 };
 
 export type NonFungibleResourceInformation = {
@@ -69,38 +69,38 @@ export type NonFungibleResourceInformation = {
   address: string;
   description?: string;
   icon?: string;
-  other_metadata: Map<string, EntityMetadataItemValue>;
+  otherMetadata: Map<string, EntityMetadataItemValue>;
 };
 
 export type NonFungibleItem = {
   id: string;
   name?: string;
   description?: string;
-  image_url?: string;
-  non_fungible_data?: Map<string, string>;
+  imageUrl?: string;
+  nonFungibleData?: Map<string, string>;
 };
 
 export const defaultFungibleResource: FungibleResource = {
   name: "",
   address: "",
-  amount_held: 0,
+  amountHeld: 0,
 };
 
 export const defaultNonFungibleResource: NonFungibleResource = {
   name: "",
   address: "",
-  ids_held: [],
+  idsHeld: [],
 };
 
 export const defaultFungibleResourceInformation: FungibleResourceInformation = {
   address: "",
   name: "",
-  other_metadata: new Map<string, EntityMetadataItemValue>(),
+  otherMetadata: new Map<string, EntityMetadataItemValue>(),
 };
 
 export const defaultNonFungibleResourceInformation: NonFungibleResourceInformation =
   {
     address: "",
     name: "",
-    other_metadata: new Map<string, EntityMetadataItemValue>(),
+    otherMetadata: new Map<string, EntityMetadataItemValue>(),
   };

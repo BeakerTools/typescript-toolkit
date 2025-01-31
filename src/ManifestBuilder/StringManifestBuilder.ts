@@ -56,23 +56,34 @@ export class StringManifestBuilder {
     account: string,
     resourceAddress: string,
     amount: Decimal,
-    proofName: string,
+    proofName?: string,
   ): this {
-    return this.callMethod(account, "create_proof_of_amount", [
+    let ret = this.callMethod(account, "create_proof_of_amount", [
       manifestAddress(resourceAddress),
       manifestDecimal(amount),
-    ]).popFromAuthZone(proofName);
+    ]);
+
+    if (proofName) {
+      ret = ret.popFromAuthZone(proofName);
+    }
+
+    return ret;
   }
 
   nonFungibleProof(
     account: string,
     nonFungibles: NonFungibles,
-    proofName: string,
+    proofName?: string,
   ): this {
-    return this.callMethod(account, "create_proof_of_non_fungibles", [
+    let ret = this.callMethod(account, "create_proof_of_non_fungibles", [
       manifestAddress(nonFungibles.address),
       manifestLocalIdArray(nonFungibles.ids),
-    ]).popFromAuthZone(proofName);
+    ]);
+    if (proofName) {
+      ret = ret.popFromAuthZone(proofName);
+    }
+
+    return ret;
   }
 
   addRawInstruction(instruction: string): this {

@@ -9,6 +9,8 @@ import {
   StateEntityNonFungiblesPageResponse,
   StateKeyValueStoreDataRequestKeyItem,
   StateKeyValueStoreDataResponseItem,
+  StateKeyValueStoreKeysResponse,
+  StateKeyValueStoreKeysResponseItem,
   StateNonFungibleDetailsResponseItem,
   StateNonFungibleIdsResponse,
   StateNonFungibleLocationResponseItem,
@@ -126,30 +128,30 @@ export class GatewayProcessor {
 
   /**
    * Fetches a stream of committed transactions from a specified ledger state version.
-   * @param from_state_version Starting ledger state version.
-   * @param receipt_state_changes Whether to include or not state changes.
-   * @param entity_filter Array of entities that need to be affected for a transaction to be returned.
-   * @param max_amount Max amount of transactions to include.
+   * @param fromStateVersion Starting ledger state version.
+   * @param receiptStateChanges Whether to include or not state changes.
+   * @param entityFilter Array of entities that need to be affected for a transaction to be returned.
+   * @param maxAmount Max amount of transactions to include.
    * @returns A promise resolving to an array of CommittedTransactionInfo objects.
    */
   async fullTransactionStream(
-    from_state_version: number,
-    receipt_state_changes?: boolean,
-    entity_filter?: string[],
-    max_amount?: number,
+    fromStateVersion: number,
+    receiptStateChanges?: boolean,
+    entityFilter?: string[],
+    maxAmount?: number,
   ): Promise<CommittedTransactionInfo[]> {
     let cursor: string | null | undefined = undefined;
-    let full_stream: CommittedTransactionInfo[] = [];
-    const stop_amount = max_amount ? max_amount : Number.MAX_SAFE_INTEGER;
+    let fullStream: CommittedTransactionInfo[] = [];
+    const stopAmount = maxAmount ? maxAmount : Number.MAX_SAFE_INTEGER;
     do {
       let stream: StreamTransactionsResponse = await this.transactionStream(
-        from_state_version,
-        receipt_state_changes,
+        fromStateVersion,
+        receiptStateChanges,
         cursor,
-        entity_filter,
+        entityFilter,
       );
       cursor = stream.next_cursor;
-      full_stream = full_stream.concat(
+      fullStream = fullStream.concat(
         stream.items
           .map((tx: CommittedTransactionInfo) =>
             tx.transaction_status === "CommittedSuccess" ? tx : null,
@@ -160,24 +162,24 @@ export class GatewayProcessor {
             ): tx is CommittedTransactionInfo => tx !== null,
           ),
       );
-    } while (cursor && full_stream.length < stop_amount);
+    } while (cursor && fullStream.length < stopAmount);
 
-    return full_stream.slice(0, stop_amount);
+    return fullStream.slice(0, stopAmount);
   }
 
   /**
    * Submits a string manifest to the ledger.
-   * @param manifest_string Transaction manifest in string format to submit.
+   * @param manifestString Transaction manifest in string format to submit.
    * @param networkId Network where to submit.
    * @param privateKey Private Key of the submitting account.
    */
   async submitRawManifest(
-    manifest_string: string,
+    manifestString: string,
     networkId: number,
     privateKey: PrivateKey,
   ): Promise<CommittedTransactionInfo> {
     const manifest: TransactionManifest = {
-      instructions: { kind: "String", value: manifest_string },
+      instructions: { kind: "String", value: manifestString },
       blobs: [],
     };
     return await this.submitManifest(manifest, networkId, privateKey);
@@ -213,7 +215,7 @@ export class GatewayProcessor {
           .notarize(privateKey),
     );
 
-    let intent_hash =
+    let intentHash =
       await RadixEngineToolkit.NotarizedTransaction.intentHash(
         notarizedTransaction,
       );
@@ -223,17 +225,17 @@ export class GatewayProcessor {
         notarizedTransaction,
       );
 
-    await this.submitTransaction(compiledTransaction, intent_hash);
+    await this.submitTransaction(compiledTransaction, intentHash);
 
     let transactionStatus: TransactionStatusResponse | undefined = undefined;
     while (
       transactionStatus === undefined ||
       transactionStatus?.status === TransactionStatus.Pending
     ) {
-      transactionStatus = await this.getTransactionStatus(intent_hash.id);
+      transactionStatus = await this.getTransactionStatus(intentHash.id);
     }
 
-    let transactionCommit = await this.getCommittedDetails(intent_hash.id);
+    let transactionCommit = await this.getCommittedDetails(intentHash.id);
 
     let transaction = transactionCommit.transaction;
     if (transaction.transaction_status != "CommittedSuccess") {
@@ -248,49 +250,82 @@ export class GatewayProcessor {
   }
 
   /**
+   * Retrieves all keys from a key-value store associated with the specified address.
+   * @param kvsAddress Address of the key-value store.
+   * @returns A promise resolving to an array of StateKeyValueStoreKeysResponseItem objects.
+   */
+  async getKeyValueStoreKeys(
+    kvsAddress: string,
+  ): Promise<StateKeyValueStoreKeysResponseItem[]> {
+    let allKeys: StateKeyValueStoreKeysResponseItem[] = [];
+
+    let cursor = undefined;
+    do {
+      let resp = await this.keyValueStoreKeys(kvsAddress, cursor);
+      cursor = resp.next_cursor;
+      allKeys.concat(resp.items);
+    } while (cursor);
+
+    return allKeys;
+  }
+
+  /**
    * Retrieves key-value store data associated with specified keys and key-value store address.
-   * @param kvs_address Address of the key-value store.
-   * @param keys Array of key items.
+   * If keys are not provided, retrieves data for all keys associated with the address.
+   * @param kvsAddress Address of the key-value store.
+   * @param keys Optional array of key items.
    * @returns A promise resolving to an array of StateKeyValueStoreDataResponseItem objects.
    */
-  async allKeyValueStoreData(
-    kvs_address: string,
-    keys: StateKeyValueStoreDataRequestKeyItem[],
+  async getKeyValueStoreData(
+    kvsAddress: string,
+    keys?: StateKeyValueStoreDataRequestKeyItem[],
   ): Promise<StateKeyValueStoreDataResponseItem[]> {
-    let resp: StateKeyValueStoreDataResponseItem[] = [];
-    let keys_batch = divideInBatches(keys, 100);
+    if (!keys) {
+      let keys = await this.getKeyValueStoreKeys(kvsAddress);
+      let keysInput: StateKeyValueStoreDataRequestKeyItem[] = keys.map(
+        (key) => {
+          return {
+            key_json: key.key.programmatic_json,
+          };
+        },
+      );
+      return this.getKeyValueStoreData(kvsAddress, keysInput);
+    } else {
+      let resp: StateKeyValueStoreDataResponseItem[] = [];
+      let keysBatch = divideInBatches(keys, 100);
 
-    for (let batch of keys_batch) {
-      const batch_resp = await this.keyValueStoreData(kvs_address, batch);
-      resp = resp.concat(batch_resp);
+      for (let batch of keysBatch) {
+        const batchResp = await this.keyValueStoreData(kvsAddress, batch);
+        resp = resp.concat(batchResp);
+      }
+      return resp;
     }
-    return resp;
   }
 
   /**
    * Retrieves information about resources associated with specified resource addresses.
-   * @param resource_addresses Array of resource addresses.
-   * @param additional_metadata Array of metadata keys to parse.
+   * @param resourceAddresses Array of resource addresses.
+   * @param additionalMetadata Array of metadata keys to parse.
    * @returns A promise resolving to a map containing resource addresses as keys and Resource objects as values.
    */
   async getResourcesInformation(
-    resource_addresses: string[],
-    additional_metadata?: string[],
+    resourceAddresses: string[],
+    additionalMetadata?: string[],
   ): Promise<Map<string, ResourceInformation>> {
-    let resource_map = new Map<string, ResourceInformation>();
-    const batches = divideInBatches(resource_addresses, 20);
+    let resourceMap = new Map<string, ResourceInformation>();
+    const batches = divideInBatches(resourceAddresses, 20);
     const limit = pLimit(this._concurrencyLimit);
     await Promise.all(
       batches.map(async (batch) => {
         const items = await limit(() => {
-          return this.limitedResourcesInformation(batch, additional_metadata);
+          return this.limitedResourcesInformation(batch, additionalMetadata);
         });
         items.forEach((value, key) => {
-          resource_map.set(key, value);
+          resourceMap.set(key, value);
         });
       }),
     );
-    return resource_map;
+    return resourceMap;
   }
 
   /**
@@ -302,7 +337,7 @@ export class GatewayProcessor {
   ): Promise<FungibleResource[]> {
     const resp = await this.entityDetails([entity]);
     const entityState = resp.items[0];
-    let held_resources: FungibleResource[] = [];
+    let heldResources: FungibleResource[] = [];
 
     let amount_map = new Map<string, number>();
     let resources: string[] = [];
@@ -320,23 +355,23 @@ export class GatewayProcessor {
     }
 
     if (resources.length !== 0) {
-      let parsed_resources = await this.getResourcesInformation(resources);
+      let parsedResources = await this.getResourcesInformation(resources);
 
-      parsed_resources.forEach((resource, address) => {
+      parsedResources.forEach((resource, address) => {
         if (resource.type == "Fungible") {
-          held_resources.push({
+          heldResources.push({
             name: resource.information.address,
             description: resource.information.description,
             address: resource.information.address,
             symbol: resource.information.symbol,
             icon: resource.information.icon,
-            amount_held: amount_map.get(address)!,
+            amountHeld: amount_map.get(address)!,
           });
         }
       });
     }
 
-    return held_resources;
+    return heldResources;
   }
 
   /**
@@ -364,12 +399,12 @@ export class GatewayProcessor {
     await Promise.all(
       items.map(async (item) => {
         if (item.aggregation_level == "Vault") {
-          let resource_owned = owned.get(item.resource_address) || [];
+          let resourceOwned = owned.get(item.resource_address) || [];
 
           for (const vault of item.vaults.items) {
             if (vault.items) {
               vault.items.forEach((nft_id) => {
-                resource_owned.push(nft_id);
+                resourceOwned.push(nft_id);
               });
             }
 
@@ -386,30 +421,30 @@ export class GatewayProcessor {
 
                 cursor = resp.next_cursor;
                 resp.items.forEach((nft_id) => {
-                  resource_owned.push(nft_id);
+                  resourceOwned.push(nft_id);
                 });
               });
             }
-            owned.set(item.resource_address, resource_owned);
+            owned.set(item.resource_address, resourceOwned);
           }
         }
       }),
     );
 
     // Get resource information
-    const resources_info = await this.getResourcesInformation(
+    const resourcesInfo = await this.getResourcesInformation(
       Array.from(owned.keys()),
     );
 
     let resources: NonFungibleResource[] = [];
 
-    resources_info.forEach((resource_info, resource_address) => {
+    resourcesInfo.forEach((resource_info, resource_address) => {
       resources.push({
         name: resource_info.information.name,
         icon: resource_info.information.icon,
         address: resource_address,
         description: resource_info.information.description,
-        ids_held: owned.get(resource_address)!,
+        idsHeld: owned.get(resource_address)!,
       });
     });
 
@@ -419,23 +454,23 @@ export class GatewayProcessor {
   /**
    * Retrieves non-fungibles ids associated with specified resources and entity.
    * @param entity Address of the entity.
-   * @param non_fungible_resource Address of the non-fungible resource.
+   * @param nonFungibleResource Address of the non-fungible resource.
    */
   async getNonFungibleIdsHeldBy(
     entity: string,
-    non_fungible_resource: string,
+    nonFungibleResource: string,
   ): Promise<string[]> {
-    const ledger_state = await this.ledgerState();
+    const ledgerState = await this.ledgerState();
 
     // Find collection
     let collection: NonFungibleResourcesCollectionItem | undefined;
     let cursor = undefined;
     do {
       let resp: StateEntityNonFungiblesPageResponse =
-        await this.getEntityCollections(entity, cursor, ledger_state);
+        await this.getEntityCollections(entity, cursor, ledgerState);
       cursor = resp.next_cursor;
       resp.items.forEach((item: NonFungibleResourcesCollectionItem) => {
-        if (item.resource_address == non_fungible_resource) {
+        if (item.resource_address == nonFungibleResource) {
           collection = item;
         }
       });
@@ -459,7 +494,7 @@ export class GatewayProcessor {
             vault.vault_address,
             collection.resource_address,
             cursor,
-            ledger_state,
+            ledgerState,
           );
 
           cursor = resp.next_cursor;
@@ -475,22 +510,22 @@ export class GatewayProcessor {
 
   /**
    * Retrieves all non-fungible ids associated to a non-fungible resource.
-   * @param resource_address Address of the non-fungible resource
-   * @param at_ledger_state Optional ledger state when to make the query.
+   * @param resourceAddress Address of the non-fungible resource
+   * @param atLedgerState Optional ledger state when to make the query.
    */
   async getAllNonFungibleIds(
-    resource_address: string,
-    at_ledger_state?: number,
+    resourceAddress: string,
+    atLedgerState?: number,
   ): Promise<string[]> {
-    const state_version = at_ledger_state
-      ? at_ledger_state
+    const state_version = atLedgerState
+      ? atLedgerState
       : await this.ledgerState();
     let cursor: string | null | undefined = undefined;
 
     let ids: string[] = [];
     do {
       const ids_resp = await this.nonFungibleIds(
-        resource_address,
+        resourceAddress,
         state_version,
         cursor,
       );
@@ -503,50 +538,50 @@ export class GatewayProcessor {
 
   /**
    * Retrieves non-fungibles items associated with specified resource address and ids.
-   * @param resource_address Address of the non-fungible items.
+   * @param resourceAddress Address of the non-fungible items.
    * @param ids Ids of the non-fungible items.
-   * @param at_ledger_state State against which to make the query.
+   * @param atLedgerState State against which to make the query.
    */
   async getNonFungibleItemsFromIds(
-    resource_address: string,
+    resourceAddress: string,
     ids: string[],
-    at_ledger_state?: number,
+    atLedgerState?: number,
   ): Promise<NonFungibleItem[]> {
-    const nft_batches = divideInBatches(ids, 100);
+    const nftBatches = divideInBatches(ids, 100);
     const limit = pLimit(this._concurrencyLimit);
     return (
       await Promise.all(
-        nft_batches.map(async (batch) => {
-          let items_data = await limit(async () =>
-            this.getNonFungibleData(resource_address, batch, at_ledger_state),
+        nftBatches.map(async (batch) => {
+          let itemsData = await limit(async () =>
+            this.getNonFungibleData(resourceAddress, batch, atLedgerState),
           );
-          return items_data.map((item) => {
+          return itemsData.map((item) => {
             let description: string | undefined;
-            let image_url: string | undefined;
-            let non_fungible_data = new Map<string, string>();
+            let imageUrl: string | undefined;
+            let nonFungibleData = new Map<string, string>();
             let name: string | undefined;
 
             if (item.data && item.data.programmatic_json.kind == "Tuple") {
               // Filter data
               item.data.programmatic_json.fields.forEach((field) => {
-                let nf_data = parseNonFungibleData(field);
+                let nfData = parseNonFungibleData(field);
 
-                if (nf_data.name) {
-                  switch (nf_data.name) {
+                if (nfData.name) {
+                  switch (nfData.name) {
                     case "name": {
-                      name = nf_data.value;
+                      name = nfData.value;
                       break;
                     }
                     case "description": {
-                      description = nf_data.value;
+                      description = nfData.value;
                       break;
                     }
                     case "key_image_url": {
-                      image_url = nf_data.value;
+                      imageUrl = nfData.value;
                       break;
                     }
                     default: {
-                      non_fungible_data.set(nf_data.name, nf_data.value);
+                      nonFungibleData.set(nfData.name, nfData.value);
                     }
                   }
                 }
@@ -555,10 +590,10 @@ export class GatewayProcessor {
             return {
               description: description,
               id: item.non_fungible_id,
-              image_url: image_url,
+              image_url: imageUrl,
               name: name,
               non_fungible_data:
-                non_fungible_data.size > 0 ? non_fungible_data : undefined,
+                nonFungibleData.size > 0 ? nonFungibleData : undefined,
             };
           });
         }),
@@ -568,14 +603,14 @@ export class GatewayProcessor {
 
   /**
    * Retrieves a transaction committed details.
-   * @param intent_hash Transaction's intent hash.
+   * @param intentHash Transaction's intent hash.
    */
   async getCommittedDetails(
-    intent_hash: string,
+    intentHash: string,
   ): Promise<TransactionCommittedDetailsResponse> {
     return withMaxLoops(
       async () => {
-        return await this._api.transaction.getCommittedDetails(intent_hash);
+        return await this._api.transaction.getCommittedDetails(intentHash);
       },
       "Could not query committed details",
       this._maxLoops,
@@ -584,21 +619,21 @@ export class GatewayProcessor {
 
   /**
    * Retrieves the owners associated with specified resource address and ids.
-   * @param resource_address Address of the non-fungible items.
+   * @param resourceAddress Address of the non-fungible items.
    * @param ids Ids of the non-fungible items.
    */
-  async getNftOwners(resource_address: string, ids: string[]) {
-    const nft_batches = divideInBatches(ids, 100);
+  async getNftOwners(resourceAddress: string, ids: string[]) {
+    const nftBatches = divideInBatches(ids, 100);
     const limit = pLimit(this._concurrencyLimit);
-    let return_map = new Map<string, string>();
+    let returnMap = new Map<string, string>();
 
     await Promise.all(
-      nft_batches.map(async (batch) => {
+      nftBatches.map(async (batch) => {
         let nft_ids = await limit(async () =>
-          this.getEntityLocation(resource_address, batch),
+          this.getEntityLocation(resourceAddress, batch),
         );
         nft_ids.map((item) => {
-          return_map.set(
+          returnMap.set(
             item.non_fungible_id,
             item.owning_vault_global_ancestor_address!,
           );
@@ -606,7 +641,7 @@ export class GatewayProcessor {
       }),
     );
 
-    return return_map;
+    return returnMap;
   }
 
   /**
@@ -622,19 +657,19 @@ export class GatewayProcessor {
    * Takes up to 20 resource addresses as input
    */
   private async limitedResourcesInformation(
-    resource_addresses: string[],
-    additional_metadata?: string[],
+    resourceAddresses: string[],
+    additionalMetadata?: string[],
   ): Promise<Map<string, ResourceInformation>> {
-    let resource_map = new Map<string, ResourceInformation>();
+    let resourceMap = new Map<string, ResourceInformation>();
 
-    let resp = await this.entityDetails(resource_addresses);
+    let resp = await this.entityDetails(resourceAddresses);
     resp.items.forEach((item) => {
       if (item.details) {
         let name: string | undefined;
         let description: string | undefined;
         let icon: string | undefined;
         let symbol: string | undefined;
-        let other_metadata: Map<string, EntityMetadataItemValue> = new Map<
+        let otherMetadata: Map<string, EntityMetadataItemValue> = new Map<
           string,
           EntityMetadataItemValue
         >();
@@ -687,10 +722,10 @@ export class GatewayProcessor {
             }
             default: {
               if (
-                additional_metadata &&
-                additional_metadata.includes(metadata.key)
+                additionalMetadata &&
+                additionalMetadata.includes(metadata.key)
               ) {
-                other_metadata.set(metadata.key, metadata.value);
+                otherMetadata.set(metadata.key, metadata.value);
               }
             }
           }
@@ -699,20 +734,20 @@ export class GatewayProcessor {
         if (name) {
           switch (item.details.type) {
             case "NonFungibleResource": {
-              resource_map.set(item.address, {
+              resourceMap.set(item.address, {
                 type: "NonFungible",
                 information: {
                   name: name,
                   address: item.address,
                   description: description,
                   icon: icon,
-                  other_metadata: other_metadata,
+                  otherMetadata: otherMetadata,
                 },
               });
               break;
             }
             case "FungibleResource": {
-              resource_map.set(item.address, {
+              resourceMap.set(item.address, {
                 type: "Fungible",
                 information: {
                   name: name,
@@ -720,7 +755,7 @@ export class GatewayProcessor {
                   description: description,
                   icon: icon,
                   symbol: symbol,
-                  other_metadata: other_metadata,
+                  otherMetadata: otherMetadata,
                 },
               });
               break;
@@ -730,18 +765,37 @@ export class GatewayProcessor {
       }
     });
 
-    return resource_map;
+    return resourceMap;
+  }
+
+  private async keyValueStoreKeys(
+    kvsAddress: string,
+    cursor?: string,
+  ): Promise<StateKeyValueStoreKeysResponse> {
+    return await withMaxLoops(
+      async () => {
+        return await this._api.state.innerClient.keyValueStoreKeys({
+          stateKeyValueStoreKeysRequest: {
+            key_value_store_address: kvsAddress,
+            cursor,
+            limit_per_page: 100,
+          },
+        });
+      },
+      "Could not query Key Value store data",
+      this._maxLoops,
+    );
   }
 
   private async keyValueStoreData(
-    kvs_address: string,
+    kvsAddress: string,
     keys: StateKeyValueStoreDataRequestKeyItem[],
   ): Promise<StateKeyValueStoreDataResponseItem[]> {
     let resp = await withMaxLoops(
       async () => {
         return await this._api.state.innerClient.keyValueStoreData({
           stateKeyValueStoreDataRequest: {
-            key_value_store_address: kvs_address,
+            key_value_store_address: kvsAddress,
             keys: keys,
           },
         });
@@ -756,7 +810,7 @@ export class GatewayProcessor {
   private async getEntityCollections(
     entity: string,
     cursor?: string,
-    ledger_state?: number,
+    ledgerState?: number,
   ): Promise<StateEntityNonFungiblesPageResponse> {
     return withMaxLoops(
       async () => {
@@ -766,7 +820,7 @@ export class GatewayProcessor {
             aggregation_level: "Vault",
             cursor: cursor,
             at_ledger_state: {
-              state_version: ledger_state,
+              state_version: ledgerState,
             },
             opt_ins: { non_fungible_include_nfids: true },
           },
@@ -779,22 +833,22 @@ export class GatewayProcessor {
 
   private async getEntityNFTsInVault(
     address: string,
-    vault_address: string,
-    resource_address: string,
+    vaultAddress: string,
+    resourceAddress: string,
     cursor?: string | null,
-    at_ledger_state?: number,
+    atLedgerState?: number,
   ): Promise<StateEntityNonFungibleIdsPageResponse> {
     return withMaxLoops(
       async () => {
-        if (cursor && at_ledger_state) {
+        if (cursor && atLedgerState) {
           return await this._api.state.innerClient.entityNonFungibleIdsPage({
             stateEntityNonFungibleIdsPageRequest: {
               address: address,
-              vault_address: vault_address,
-              resource_address: resource_address,
+              vault_address: vaultAddress,
+              resource_address: resourceAddress,
               cursor: cursor,
               at_ledger_state: {
-                state_version: at_ledger_state,
+                state_version: atLedgerState,
               },
             },
           });
@@ -802,8 +856,8 @@ export class GatewayProcessor {
           return await this._api.state.innerClient.entityNonFungibleIdsPage({
             stateEntityNonFungibleIdsPageRequest: {
               address: address,
-              vault_address: vault_address,
-              resource_address: resource_address,
+              vault_address: vaultAddress,
+              resource_address: resourceAddress,
             },
           });
         }
@@ -813,19 +867,19 @@ export class GatewayProcessor {
     );
   }
   private async nonFungibleIds(
-    resource_address: string,
-    at_ledger_state: number,
+    resourceAddress: string,
+    atLedgerState: number,
     cursor?: string,
   ): Promise<StateNonFungibleIdsResponse> {
     return withMaxLoops(
       async () => {
         return await this._api.state.innerClient.nonFungibleIds({
           stateNonFungibleIdsRequest: {
-            resource_address: resource_address,
+            resource_address: resourceAddress,
             cursor: cursor,
             limit_per_page: 100,
             at_ledger_state: {
-              state_version: at_ledger_state,
+              state_version: atLedgerState,
             },
           },
         });
@@ -836,8 +890,8 @@ export class GatewayProcessor {
   }
 
   private async transactionStream(
-    from_state_version: number,
-    receipt_state_changes?: boolean,
+    fromStateVersion: number,
+    receiptCtateChanges?: boolean,
     cursor?: string,
     filters?: string[],
   ): Promise<StreamTransactionsResponse> {
@@ -847,7 +901,7 @@ export class GatewayProcessor {
           return await this._api.stream.innerClient.streamTransactions({
             streamTransactionsRequest: {
               from_ledger_state: {
-                state_version: from_state_version,
+                state_version: fromStateVersion,
               },
               cursor: cursor,
               order: "Asc",
@@ -857,8 +911,8 @@ export class GatewayProcessor {
                 balance_changes: true,
                 raw_hex: true,
                 receipt_events: true,
-                receipt_state_changes: receipt_state_changes
-                  ? receipt_state_changes
+                receipt_state_changes: receiptCtateChanges
+                  ? receiptCtateChanges
                   : false,
               },
             },
@@ -867,7 +921,7 @@ export class GatewayProcessor {
           return await this._api.stream.innerClient.streamTransactions({
             streamTransactionsRequest: {
               from_ledger_state: {
-                state_version: from_state_version,
+                state_version: fromStateVersion,
               },
               cursor: cursor,
               order: "Asc",
@@ -891,16 +945,16 @@ export class GatewayProcessor {
   private async getNonFungibleData(
     address: string,
     ids: string[],
-    at_ledger_state?: number,
+    atLedgerState?: number,
   ): Promise<StateNonFungibleDetailsResponseItem[]> {
     return withMaxLoops(
       async () => {
         return await this._api.state.getNonFungibleData(
           address,
           ids,
-          at_ledger_state
+          atLedgerState
             ? {
-                state_version: at_ledger_state,
+                state_version: atLedgerState,
               }
             : undefined,
         );
@@ -925,7 +979,7 @@ export class GatewayProcessor {
 
   private async submitTransaction(
     compiledTransaction: Uint8Array,
-    intent_hash: TransactionHash,
+    intentHash: TransactionHash,
   ) {
     return withMaxLoops(
       async () => {
@@ -936,7 +990,7 @@ export class GatewayProcessor {
           },
         });
       },
-      `Could not submit transaction ${intent_hash}`,
+      `Could not submit transaction ${intentHash}`,
       this._maxLoops,
     );
   }
@@ -952,13 +1006,13 @@ export class GatewayProcessor {
   }
 
   private async getTransactionStatus(
-    intent_hash: string,
+    intentHash: string,
   ): Promise<TransactionStatusResponse> {
     return withMaxLoops(
       async () => {
         return await this._api.transaction.innerClient.transactionStatus({
           transactionStatusRequest: {
-            intent_hash: intent_hash,
+            intent_hash: intentHash,
           },
         });
       },
@@ -968,8 +1022,8 @@ export class GatewayProcessor {
   }
 }
 
-function getApiAddress(network_id: number): string {
-  switch (network_id) {
+function getApiAddress(networkId: number): string {
+  switch (networkId) {
     case NetworkId.Mainnet:
       return "https://mainnet.radixdlt.com/";
 
